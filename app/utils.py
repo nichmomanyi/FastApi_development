@@ -8,4 +8,4 @@ def hash (password: str):
 
 # Creating a function that verifies the passwords by comparing the hashes
 def verify(plain_password, hash_password):
-    return pwd_context.verify(plain_password, hash_password)
+    return pwd_context.verify(plain_password, hash_password) 
