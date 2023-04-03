@@ -1,6 +1,7 @@
 from sqlalchemy import Column, Integer, String, Boolean, ForeignKey
 from sqlalchemy.sql.sqltypes import TIMESTAMP
 from sqlalchemy.sql.expression import null, text
+from sqlalchemy.orm import relationship
 from .database import Base
 
 class Post(Base):
@@ -12,6 +13,10 @@ class Post(Base):
     published=Column(Boolean, server_default='True', nullable=False)
     created_at=Column(TIMESTAMP(timezone=True), nullable=False, server_default=text('now()'))
     owner_id=Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    
+    # E.g when one wants to know the person who sent the poat thus Tells sqlAlchemy 
+    # to fetch information based on the relationship
+    owner=relationship ("User")
 class User(Base):
     __tablename__ ="users"
     id=Column(Integer, primary_key=True, nullable=False)

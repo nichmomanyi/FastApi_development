@@ -2,17 +2,21 @@
 from .. import schemas, utils, models, oauth2
 from fastapi import FastAPI, Response,status, HTTPException, Depends, APIRouter
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 from ..database import get_db
 
 router=APIRouter(prefix="/posts", tags=["posts"])
 
 
 @router.get("/", response_model=List[schemas.Post])
-def get_posts(db: Session = Depends(get_db), user_id: int = Depends(oauth2.get_current_user)):
+def get_posts(db: Session = Depends(get_db), current_user: int = Depends(oauth2.get_current_user),
+            limit: int=10, skip: int=0, search: Optional[str]=""):
     # cursor.execute("""SELECT * FROM posts""")
     # posts=cursor.fetchall()
-    posts=db.query(models.Post).all()
+    posts=db.query(models.Post).filter(models.Post.title.contains(search)).limit(limit).offset(skip).all()
+    # TO read all post with the same owner ID only
+    # posts=db.query(models.Post).filter(models.Post.owner_id==current_user.id).all()
+
     return posts 
 
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=schemas.Post)
@@ -46,30 +50,36 @@ def delete_post (id: int, db: Session = Depends(get_db), current_user: int = Dep
     # cursor.execute("""DELETE FROM posts WHERE id= %s RETURNING * """,str((id),))
     # deleted_post=cursor.fetchone()
     # conn.commit()
-    deleted_post=db.query(models.Post).filter(models.Post.id == id)
+    post_query=db.query(models.Post).filter(models.Post.id == id)
     
-    if deleted_post.first() is None:
+    post=post_query.first()
+    if post is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"The post with id {id} does not exist")
-    deleted_post.delete(synchronize_session=False)
+    if post.owner_id !=current_user.id: 
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to perform the requested action")    
+    post_query.delete(synchronize_session=False)
     db.commit()
     
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.put("/{id}", response_model=schemas.Post)
-def update_post (id: int, updatedpost:schemas.PostCreate, db: Session = Depends(get_db), current_user: int = Depends(oauth2.get_current_user)):
+def update_post (id: int, updated_post:schemas.PostCreate, db: Session = Depends(get_db), current_user: int = Depends(oauth2.get_current_user)):
     # cursor.execute("""UPDATE posts  SET title= %s, content= %s, published= %s WHERE id=%s RETURNING * """,(post.title, post.content, post.published, str((id),)))
     # updated_post=cursor.fetchone()
     # conn.commit()
     
-    updated_post=db.query(models.Post).filter(models.Post.id==id)
-    post=updated_post.first()
+    post_query=db.query(models.Post).filter(models.Post.id==id)
+    post=post_query.first() 
     
     if post is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"The post with id {id} does not exist")
     
+    if post.owner_id != current_user.id: 
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to perform the requested action")
+    
     # updated_post.update({'title':'This is my best lesson of study', 'content':'I just love API'},synchronize_session=False)
-    updated_post.update(updatedpost.dict(),synchronize_session=False)
+    post_query.update(updated_post.dict(),synchronize_session=False)
 
     db.commit()
-    return updated_post.first()
+    return post_query.first()
