@@ -32,6 +32,6 @@ app.include_router(vote.router)
 
 @app.get("/")
 def root():
-    return {"message": "Welcome to my API course Great course to study. Yesterday you did not take any classes"}
+    return {"message": "Welcome to my API course Great course to study. So far my progress is good"}
 
 
